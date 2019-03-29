@@ -2,3 +2,4 @@
 .vscode/
 __pycache__/
 debug/__pycache__/
+dataset
