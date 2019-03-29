@@ -13,4 +13,5 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     :return: A sorted list of tuples containing response value and image position.
     The list is sorted from largest to smallest response value.
     """
+
     raise NotImplementedError

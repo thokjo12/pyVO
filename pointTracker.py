@@ -1,10 +1,11 @@
 import numpy as np
 import cv2
 
-from pyflann import *
 from typing import Tuple, List
 from math import sin, cos, pi, sqrt
 from collections import defaultdict
+
+from pyflann.index import FLANN
 
 flann = FLANN()
 
