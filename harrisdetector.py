@@ -6,6 +6,7 @@ from typing import Tuple, List
 from scipy.signal import convolve2d
 
 
+# TODO: replace witht he scipy signal function.
 def gauss_kernel(size):
     """ Returns a normalized 2D gauss kernel array for convolutions """
     size = int(size)
@@ -24,17 +25,19 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     The list is sorted from largest to smallest response value.
     """
     points = []
-    start = time.time()
-    i_x = cv2.Sobel(src=img, ddepth=-1, dx=1, dy=0)
-    i_y = cv2.Sobel(src=img, ddepth=-1, dx=0, dy=1)
-    gauss = gauss_kernel(3)
-    A = convolve2d(i_x * i_x, gauss, mode="same") + 1e-15
-    B = convolve2d(i_y * i_y, gauss, mode="same") + 1e-15
-    C = convolve2d(i_x * i_y, gauss, mode="same") + 1e-15
+    i_x = cv2.Scharr(src=img, ddepth=-1, dx=1, dy=0)
+    i_y = cv2.Scharr(src=img, ddepth=-1, dx=0, dy=1)
 
-    det = A * B - C * C
+    window = gauss_kernel(3)
+    A = convolve2d(i_x * i_x, window, mode="same")
+    C = convolve2d(i_y * i_y, window, mode="same")
+    B = convolve2d(i_x * i_y, window, mode="same")
+
+    det = A * C - B * B
     trace = A + B
-    R = det / (0.06 * trace)
+    R = det - 0.06 * trace * trace
+
+    # introduce NMS or something to find good points.
     matches = R >= threshold
     print(np.count_nonzero(matches))
     indicies = np.nonzero(matches)
@@ -51,18 +54,22 @@ def harris_corners_test(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[
     :return: A sorted list of tuples containing response value and image position.
     The list is sorted from largest to smallest response value.
     """
-    points = []
-    start = time.time()
-    i_x = cv2.Sobel(src=img, ddepth=-1, dx=1, dy=0)
-    i_y = cv2.Sobel(src=img, ddepth=-1, dx=0, dy=1)
-    gauss = gauss_kernel(3)
-    A = convolve2d(i_x * i_x, gauss, mode="same") + 1e-15
-    B = convolve2d(i_y * i_y, gauss, mode="same") + 1e-15
-    C = convolve2d(i_x * i_y, gauss, mode="same") + 1e-15
 
-    det = A * B - C * C
+    i_x = cv2.Scharr(src=img, ddepth=-1, dx=1, dy=0)
+    i_y = cv2.Scharr(src=img, ddepth=-1, dx=0, dy=1)
+
+    window = gauss_kernel(3)
+    A = convolve2d(i_x * i_x, window, mode="same")
+    C = convolve2d(i_y * i_y, window, mode="same")
+    B = convolve2d(i_x * i_y, window, mode="same")
+
+    det = A * C - B * B
     trace = A + B
-    R = det / 0.06*(trace**2)
+    R = det - 0.06 * trace * trace
+
+    # introduce NMS or something to find good points.
     matches = R >= threshold
+    print(np.count_nonzero(matches))
+    indicies = np.nonzero(matches)
     img[matches] = 1
     return img
