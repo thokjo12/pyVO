@@ -79,6 +79,16 @@ class KLTTracker:
         """
 
         for iteration in range(max_iterations):
+            # 1 is already complete in function add_new_corners
+            # 2 compute displacement to next frame using LK method
+            A = np.zeros((1,1))
+            struc_tens = A.T*A
+            b = 0
+            vel_vec = struc_tens.I * A.T * b
+            # 3 store displacement of each corner, update corner pos
+            # 4 (optional) add more points
+            # 5 repeat 2 to 3
+            # 6 return long trajectory for each corner point.
             raise NotImplementedError  # You should try to implement this without using any loops, other than this iteration loop. Otherwise it will be very slow.
 
         self.positionHistory.append((self.pos_x, self.pos_y, self.theta))  # Add new point to positionHistory to visualize tracking
