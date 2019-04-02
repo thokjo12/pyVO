@@ -3,10 +3,10 @@ import time
 import cv2
 import numpy as np
 from typing import Tuple, List
-from scipy.signal import convolve2d
+from scipy.signal import convolve2d, windows
 
 
-# TODO: replace witht he scipy signal function.
+# TODO: replace with the scipy signal function.
 def gauss_kernel(size):
     """ Returns a normalized 2D gauss kernel array for convolutions """
     size = int(size)
@@ -14,12 +14,16 @@ def gauss_kernel(size):
     g = np.exp(-(x ** 2 / float(size) + y ** 2 / float(size)))
     return g / g.sum()
 
+def gauss_kernel2(size, sigma):
+    gauss_filter = windows.gaussian(size, sigma)
+    return np.outer(gauss_filter, gauss_filter)
+
 
 def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple[float, np.ndarray]]:
     """
     Return the harris corners detected in the image.
     :param img: The grayscale image.
-    :param threshold: The harris respnse function threshold.
+    :param threshold: The harris response function threshold.
     :param blur_sigma: Sigma value for the image bluring.
     :return: A sorted list of tuples containing response value and image position.
     The list is sorted from largest to smallest response value.
@@ -37,39 +41,13 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     trace = A + B
     R = det - 0.06 * trace * trace
 
-    # introduce NMS or something to find good points.
+    # TODO: introduce NMS
     matches = R >= threshold
-    print(np.count_nonzero(matches))
-    indicies = np.nonzero(matches)
-    res = R[matches]
+    indices = np.nonzero(matches)
+    coordinates = np.stack(indices, axis=1)
+    coordinates = np.split(coordinates, coordinates.shape[0], axis=0)
+    # TODO: Vectorize
+    for r_val, coords in zip(matches.flatten(), coordinates):
+        points.append((r_val, np.squeeze(coords)))
+    points.sort(key=lambda x: x[0], reverse=True)
     return points
-
-
-def harris_corners_test(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple[float, np.ndarray]]:
-    """
-    Return the harris corners detected in the image.
-    :param img: The grayscale image.
-    :param threshold: The harris respnse function threshold.
-    :param blur_sigma: Sigma value for the image bluring.
-    :return: A sorted list of tuples containing response value and image position.
-    The list is sorted from largest to smallest response value.
-    """
-
-    i_x = cv2.Scharr(src=img, ddepth=-1, dx=1, dy=0)
-    i_y = cv2.Scharr(src=img, ddepth=-1, dx=0, dy=1)
-
-    window = gauss_kernel(3)
-    A = convolve2d(i_x * i_x, window, mode="same")
-    C = convolve2d(i_y * i_y, window, mode="same")
-    B = convolve2d(i_x * i_y, window, mode="same")
-
-    det = A * C - B * B
-    trace = A + B
-    R = det - 0.06 * trace * trace
-
-    # introduce NMS or something to find good points.
-    matches = R >= threshold
-    print(np.count_nonzero(matches))
-    indicies = np.nonzero(matches)
-    img[matches] = 1
-    return img
