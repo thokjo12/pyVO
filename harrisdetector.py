@@ -46,4 +46,5 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     coordinates = np.stack(indices, axis=1)
     points = list(zip(R[indices],coordinates))
 
+    points.sort(key=lambda x:x[0],reverse=True)
     return points
