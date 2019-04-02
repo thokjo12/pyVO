@@ -15,7 +15,7 @@ def gauss_kernel(size):
     return g / g.sum()
 
 def gauss_kernel2(size, sigma):
-    gauss_filter = windows.gaussian(size, sigma)
+    gauss_filter = windows.gaussian(size, sigma,sym=True)
     return np.outer(gauss_filter, gauss_filter)
 
 
@@ -28,7 +28,6 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     :return: A sorted list of tuples containing response value and image position.
     The list is sorted from largest to smallest response value.
     """
-    points = []
     i_x = cv2.Scharr(src=img, ddepth=-1, dx=1, dy=0)
     i_y = cv2.Scharr(src=img, ddepth=-1, dx=0, dy=1)
 
@@ -42,12 +41,9 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     R = det - 0.06 * trace * trace
 
     # TODO: introduce NMS
-    matches = R >= threshold
-    indices = np.nonzero(matches)
+
+    indices = np.where(R >= threshold)
     coordinates = np.stack(indices, axis=1)
-    coordinates = np.split(coordinates, coordinates.shape[0], axis=0)
-    # TODO: Vectorize
-    for r_val, coords in zip(matches.flatten(), coordinates):
-        points.append((r_val, np.squeeze(coords)))
-    points.sort(key=lambda x: x[0], reverse=True)
+    points = list(zip(R[indices],coordinates))
+
     return points
