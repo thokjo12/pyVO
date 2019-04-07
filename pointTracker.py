@@ -30,10 +30,6 @@ def get_warped_patch(img: np.ndarray, patch_size: int,
 
     return cv2.warpAffine(img, t, (patch_size, patch_size), flags=cv2.WARP_INVERSE_MAP)
 
-def warped_jacobian(x, y, theta):
-    """Evaulates the jacobian at W(x; p)"""
-    return np.array([[1, 0, -sin(theta) * x - cos(theta) * y], [0, 1, cos(theta) * x - sin(theta) * y]])
-
 class KLTTracker:
 
     def __init__(self, initial_position: np.ndarray, origin_image: np.ndarray, patch_size, tracker_id):
@@ -80,24 +76,38 @@ class KLTTracker:
         :return: Return 0 when track is successful, 1 any point of the tracking patch is outside the image,
         2 if a invertible hessian is encountered and 3 if the final error is larger than max_error.
         """
-        p = 0
-        i_x = img_grad[:,:,0]
-        i_y = img_grad[:,:,1]
+        # Initial p value
+        p = 0 # TODO change to pos_x and pos_y(?)
+        
+        # Crop the gradient
+        i_x = get_warped_patch(img_grad[:, :, 0], self.patchSize, 0, 0, 0)
+        i_y = get_warped_patch(img_grad[:, :, 1], self.patchSize, 0, 0, 0)
         d_i = np.block([i_x,i_y])
         
         for iteration in range(max_iterations):
+            # Find I(W(x; p))
             warped_patch = get_warped_patch(img, self.patchSize, self.translationX, self.translationY, self.theta)
+
+            # Calculate the error between the images
             error = self.trackingPatch - warped_patch
-            jacobian = warped_jacobian(self.translationX, self.translationY, self.theta)
-            steepest_descent = np.tensordot(d_i, jacobian) # Error when multiplying with block matrix
-            #hessian = np.sum(steepest_descent.T * steepest_descent, axis=2)
-            #bigsum = np.sum(steepest_descent.T * error, axis=2)
-            #delta_p = np.linalg.inv(hessian) * bigsum
 
+            # Calculate the steepest descent
+            steepest_descent = d_i.dot(get_warped_patch(img_grad, self.patchSize, self.translationX, self.translationY, self.theta).reshape(self.patchSize*2, self.patchSize))
 
-            #hessian_est = warped_patch * grads.T *grads * warped_patch 
-            #hessian_est = get_warped_patch() * derivative_vector * get_warped_patch()
-            #delta_p = inv_hessian * img_grad.T * (self.trackingPatch - img[self.pos_y:self.pos_y+self.patchSize, self.pos_x:self.pos_x+self.patchSize]) 
+            # Find the hessian
+            hessian = steepest_descent.T * steepest_descent
+
+            # Try to calculate the hessian, return if we cant
+            try:
+                hessian_inv = np.linalg.inv(hessian)
+            except np.linalg.LinAlgError:
+                print("Hessian not invertible")
+                return 2
+
+            # Find the delta_p
+            delta_p = hessian_inv * steepest_descent.T * error
+            p = p + delta_p
+
             raise NotImplementedError  # You should try to implement this without using any loops, other than this iteration loop. Otherwise it will be very slow.
 
         self.positionHistory.append((self.pos_x, self.pos_y, self.theta))  # Add new point to positionHistory to visualize tracking
