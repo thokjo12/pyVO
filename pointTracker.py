@@ -30,6 +30,10 @@ def get_warped_patch(img: np.ndarray, patch_size: int,
 
     return cv2.warpAffine(img, t, (patch_size, patch_size), flags=cv2.WARP_INVERSE_MAP)
 
+def get_warped_jacobian(x, y, theta):
+    """Evaulates the jacobian at W(x; p)"""
+    return np.array([[1, 0, -sin(theta) * x - cos(theta) * y], [0, 1, cos(theta) * x - sin(theta) * y]])
+
 class KLTTracker:
 
     def __init__(self, initial_position: np.ndarray, origin_image: np.ndarray, patch_size, tracker_id):
@@ -76,28 +80,27 @@ class KLTTracker:
         :return: Return 0 when track is successful, 1 any point of the tracking patch is outside the image,
         2 if a invertible hessian is encountered and 3 if the final error is larger than max_error.
         """
-        # Initial p value
-        p = 0 # TODO change to pos_x and pos_y(?)
-        
-        # Crop the gradient
-        i_x = get_warped_patch(img_grad[:, :, 0], self.patchSize, 0, 0, 0)
-        i_y = get_warped_patch(img_grad[:, :, 1], self.patchSize, 0, 0, 0)
-        d_i = np.block([i_x,i_y])
         
         for iteration in range(max_iterations):
+            # Crop the gradient
+            grad_i = get_warped_patch(img_grad, self.patchSize, self.pos_x, self.pos_y, self.theta)
+            grad_i = grad_i.reshape(self.patchSize, self.patchSize, -1)
+
             # Find I(W(x; p))
-            warped_patch = get_warped_patch(img, self.patchSize, self.translationX, self.translationY, self.theta)
+            warped_patch = get_warped_patch(img, self.patchSize, self.pos_x, self.pos_y, self.theta)
 
             # Calculate the error between the images
             error = self.trackingPatch - warped_patch
 
             # Calculate the steepest descent
-            steepest_descent = d_i.dot(get_warped_patch(img_grad, self.patchSize, self.translationX, self.translationY, self.theta).reshape(self.patchSize*2, self.patchSize))
+            warped_jacobian = get_warped_jacobian(self.pos_x, self.pos_y, self.theta)
+            steepest_descent = grad_i.dot(warped_jacobian)
 
             # Find the hessian
-            hessian = steepest_descent.T * steepest_descent
+            hessian = steepest_descent.T.dot(steepest_descent)
+            hessian = np.sum(hessian, (1, 2))
 
-            # Try to calculate the hessian, return if we cant
+            # Try to invert the hessian, return if we cant
             try:
                 hessian_inv = np.linalg.inv(hessian)
             except np.linalg.LinAlgError:
@@ -105,8 +108,9 @@ class KLTTracker:
                 return 2
 
             # Find the delta_p
-            delta_p = hessian_inv * steepest_descent.T * error
-            p = p + delta_p
+            delta_p = hessian_inv * (steepest_descent.T.dot(error))
+
+            # TODO update p
 
             raise NotImplementedError  # You should try to implement this without using any loops, other than this iteration loop. Otherwise it will be very slow.
 
