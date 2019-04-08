@@ -21,7 +21,7 @@ def get_warped_patch(img: np.ndarray, patch_size: int,
     :param theta: The rotation of the patch in radians.
     :return: The warped image patch.
     """
-    patch_half_size = patch_size/2
+    patch_half_size = patch_size / 2
     c = cos(-theta)
     s = sin(-theta)
 
@@ -30,12 +30,31 @@ def get_warped_patch(img: np.ndarray, patch_size: int,
 
     return cv2.warpAffine(img, t, (patch_size, patch_size), flags=cv2.WARP_INVERSE_MAP)
 
-def get_warped_jacobian(x, y, theta):
+
+def get_warped_jacobian(x0, y0, theta, path_size, half_patch):
     """Evaulates the jacobian at W(x; p)"""
-    return np.array([[1, 0, -sin(theta) * x - cos(theta) * y], [0, 1, cos(theta) * x - sin(theta) * y]])
+    jacobian_warp = np.zeros((path_size, path_size, 2, 3))
+    jacobian_warp[:, :, 0, 0] = 1
+    jacobian_warp[:, :, 1, 1] = 1
+    u_grid, v_grid = np.mgrid[-half_patch:half_patch + 1,-half_patch:half_patch + 1]
+
+    jacobian_warp[:, :, 0, 2] = -sin(theta) * u_grid - cos(theta) * v_grid
+    jacobian_warp[:, :, 1, 2] = cos(theta) * u_grid - sin(theta) * v_grid
+
+    return jacobian_warp
+
+
+def mat_invertible(h):
+    """
+    check if matrix is invertible, must be square and the rank must be lower or equal to the min of (mxn) which ever is
+    smallest
+    :param h: the matrix to check
+    :return: true if invertible
+    """
+    return h.shape[0] == h.shape[1] and np.linalg.matrix_rank(h) <= np.min([h.shape[0], h.shape[1]])
+
 
 class KLTTracker:
-
     def __init__(self, initial_position: np.ndarray, origin_image: np.ndarray, patch_size, tracker_id):
         assert patch_size >= 3 and patch_size % 2 == 1, f'patch_size must be 3 or greater and be a odd number, is {patch_size}'
         self.initialPosition = initial_position
@@ -51,13 +70,16 @@ class KLTTracker:
 
         pos_x, pos_y = initial_position
         image_height, image_width = origin_image.shape
+
         assert self.patchHalfSizeFloored <= pos_x < image_width - self.patchHalfSizeFloored \
                and self.patchHalfSizeFloored <= pos_y < image_height - self.patchHalfSizeFloored, \
             f'Point is to close to the image border for the current patch size, point is {initial_position} and patch_size is {patch_size}'
+
         self.trackingPatch = origin_image[pos_y - self.patchHalfSizeFloored:pos_y + self.patchHalfSizeFloored + 1,
-                                          pos_x - self.patchHalfSizeFloored:pos_x + self.patchHalfSizeFloored + 1]
+                             pos_x - self.patchHalfSizeFloored:pos_x + self.patchHalfSizeFloored + 1]
+
         self.visualizeColor = np.random.randint(0, 256, 3, dtype=int)
-        self.patchBorder = sqrt(2*patch_size**2) + 1
+        self.patchBorder = sqrt(2 * patch_size ** 2) + 1
 
     @property
     def pos_x(self):
@@ -80,11 +102,10 @@ class KLTTracker:
         :return: Return 0 when track is successful, 1 any point of the tracking patch is outside the image,
         2 if a invertible hessian is encountered and 3 if the final error is larger than max_error.
         """
-        
+
         for iteration in range(max_iterations):
             # Crop the gradient
             grad_i = get_warped_patch(img_grad, self.patchSize, self.pos_x, self.pos_y, self.theta)
-            grad_i = grad_i.reshape(self.patchSize, self.patchSize, -1)
 
             # Find I(W(x; p))
             warped_patch = get_warped_patch(img, self.patchSize, self.pos_x, self.pos_y, self.theta)
@@ -93,32 +114,30 @@ class KLTTracker:
             error = self.trackingPatch - warped_patch
 
             # Calculate the steepest descent
-            warped_jacobian = get_warped_jacobian(self.pos_x, self.pos_y, self.theta)
+            warped_jacobian = get_warped_jacobian(self.pos_x, self.pos_y, self.theta, self.patchSize,
+                                                  self.patchHalfSizeFloored)
             steepest_descent = grad_i.dot(warped_jacobian)
 
             # Find the hessian
             hessian = steepest_descent.T.dot(steepest_descent)
             hessian = np.sum(hessian, (1, 2))
-
             # Try to invert the hessian, return if we cant
-            try:
-                hessian_inv = np.linalg.inv(hessian)
-            except np.linalg.LinAlgError:
+            if not mat_invertible(hessian):
                 print("Hessian not invertible")
                 return 2
 
-            # Find the delta_p
-            delta_p = hessian_inv * (steepest_descent.T.dot(error))
+            hessian_inv = np.linalg.inv(hessian)
 
+            delta_p = hessian_inv * np.sum((steepest_descent.T.dot(error)), (1, 2))
             # TODO update p
 
             raise NotImplementedError  # You should try to implement this without using any loops, other than this iteration loop. Otherwise it will be very slow.
 
-        self.positionHistory.append((self.pos_x, self.pos_y, self.theta))  # Add new point to positionHistory to visualize tracking
+        self.positionHistory.append(
+            (self.pos_x, self.pos_y, self.theta))  # Add new point to positionHistory to visualize tracking
 
 
 class PointTracker:
-
     def __init__(self, max_points=80, tracking_patch_size=27):
         self.maxPoints = max_points
         self.trackingPatchSize = tracking_patch_size
@@ -126,7 +145,7 @@ class PointTracker:
         self.nextTrackerId = 0
 
     def visualize(self, img: np.ndarray, draw_id=False):
-        img_vis = cv2.cvtColor((img*255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
+        img_vis = cv2.cvtColor((img * 255).astype(np.uint8), cv2.COLOR_GRAY2RGB)
         for klt in self.currentTrackers:
             x_pos = int(round(klt.pos_x))
             y_pos = int(round(klt.pos_y))
@@ -136,13 +155,15 @@ class PointTracker:
             cv2.circle(img_vis, (x_pos, y_pos), 3, [int(c) for c in klt.visualizeColor], -1)
             cv2.line(img_vis, (x_pos, y_pos), (x2_pos, y2_pos), 0, thickness=1, lineType=cv2.LINE_AA)
             if draw_id:
-                cv2.putText(img_vis, f'{klt.trackerID}', (x_pos+5, y_pos), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.8, (255, 100, 0))
+                cv2.putText(img_vis, f'{klt.trackerID}', (x_pos + 5, y_pos), cv2.FONT_HERSHEY_COMPLEX_SMALL, 0.8,
+                            (255, 100, 0))
 
             if len(klt.positionHistory) >= 2:
-                for i in range(len(klt.positionHistory)-1):
+                for i in range(len(klt.positionHistory) - 1):
                     x_from, y_from, _ = klt.positionHistory[i]
-                    x_to, y_to, _ = klt.positionHistory[i+1]
-                    cv2.line(img_vis, (int(round(x_from)), int(round(y_from))), (int(round(x_to)), int(round(y_to))), 0, thickness=1, lineType=cv2.LINE_AA)
+                    x_to, y_to, _ = klt.positionHistory[i + 1]
+                    cv2.line(img_vis, (int(round(x_from)), int(round(y_from))), (int(round(x_to)), int(round(y_to))), 0,
+                             thickness=1, lineType=cv2.LINE_AA)
 
         cv2.imshow("KLT Trackers", img_vis)
 
@@ -150,10 +171,12 @@ class PointTracker:
                         min_distance=13.0) -> None:
         assert len(points_and_response_list) > 0, 'points_list is empty'
 
-        for i in range(len(points_and_response_list) - 1):  # Check that points_list is sorted from largest to smallest response value
+        for i in range(len(
+                points_and_response_list) - 1):  # Check that points_list is sorted from largest to smallest response value
             assert points_and_response_list[i][0] >= points_and_response_list[i + 1][0], 'points_list is not sorted'
 
-        if len(self.currentTrackers) >= self.maxPoints:  # Dont do anything if we already have the maximum number of points
+        if len(
+                self.currentTrackers) >= self.maxPoints:  # Dont do anything if we already have the maximum number of points
             return
 
         filtered_points = []

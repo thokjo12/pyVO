@@ -6,6 +6,7 @@ from typing import Tuple, List
 from scipy.signal import convolve2d, windows
 
 
+
 # TODO: replace with the scipy signal function.
 def gauss_kernel(size):
     """ Returns a normalized 2D gauss kernel array for convolutions """
@@ -36,11 +37,16 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     C = convolve2d(i_y * i_y, window, mode="same")
     B = convolve2d(i_x * i_y, window, mode="same")
 
+    #look into eigen vals
     det = A * C - B * B
     trace = A + C
     R = det - 0.06 * trace * trace
 
     # TODO: introduce NMS
+
+    #convert everything that is not relevant to 0 and everything else to 1
+    #non zero cv2
+    #dilate
 
     indices = np.where(R >= threshold)
     coordinates = np.stack(indices, axis=1)
