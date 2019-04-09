@@ -44,14 +44,15 @@ def get_warped_jacobian(theta, path_size, half_patch):
     return jacobian_warp
 
 
-def mat_invertible(h):
+def mat_invertible(mat):
     """
-    check if matrix is invertible, must be square and the rank must be lower or equal to the min of (mxn) which ever is
-    smallest
-    :param h: the matrix to check
+    Check if matrix is invertible, must be square and the rank must be
+    lower or equal to the min of (mxn) which ever is smallest.
+    :param mat: the matrix to check
     :return: true if invertible
     """
-    return h.shape[0] == h.shape[1] and np.linalg.matrix_rank(h) <= np.min([h.shape[0], h.shape[1]])
+    return mat.shape[0] == mat.shape[1] and \
+        np.linalg.matrix_rank(mat) <= np.min([mat.shape[0], mat.shape[1]])
 
 
 class KLTTracker:
@@ -102,13 +103,16 @@ class KLTTracker:
         :return: Return 0 when track is successful, 1 any point of the tracking patch is outside the image,
         2 if a invertible hessian is encountered and 3 if the final error is larger than max_error.
         """
+        img_height, img_width = img.shape
 
         for iteration in range(max_iterations):
-
-            # TODO check if points of the patch are inside the image (do we have a patch that exceeds 640  || 480)
+            # Check if the point in the tracking patch is outside the image
+            if not 0 <= self.pos_x < img_width or not 0 <= self.pos_y < img_height:
+                return 1
 
             # Crop the gradient
             grad_i = get_warped_patch(img_grad, self.patchSize, self.pos_x, self.pos_y, self.theta)
+            grad_i = grad_i.reshape(self.patchSize, self.patchSize, 1, -1)
 
             # Find I(W(x; p))
             warped_patch = get_warped_patch(img, self.patchSize, self.pos_x, self.pos_y, self.theta)
@@ -117,7 +121,7 @@ class KLTTracker:
             error = self.trackingPatch - warped_patch
 
             # Calculate the steepest descent
-            jacobian = get_warped_jacobian(self.theta, self.patchSize,self.patchHalfSizeFloored)
+            jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
             steepest_descent = grad_i @ jacobian
 
             # Find the hessian
@@ -129,11 +133,10 @@ class KLTTracker:
 
             hessian = np.linalg.inv(hessian)
 
-            # iffy, double check this because we are summing over 3 axes.
-            delta_p = hessian @ np.sum((steepest_descent.T @ error),
-                                       (1, 2, 3))
+            # Sum over 3 axes to change (3, 1, 27, 27) to (3,).
+            delta_p = hessian @ np.sum((steepest_descent.T @ error), (1, 2, 3))
 
-            # check if delta p is less or equal to min delta, if so break
+            # Check if delta p is less or equal to min delta, if so break
             if np.linalg.norm(delta_p) <= min_delta_length:
                 break
 

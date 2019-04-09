@@ -54,16 +54,3 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
 
     points.sort(key=lambda x:x[0],reverse=True)
     return points
-
-
-# TODO: replace with the scipy signal function.
-def gauss_kernel(size):
-    """ Returns a normalized 2D gauss kernel array for convolutions """
-    size = int(size)
-    x, y = np.mgrid[-size:size + 1, -size:size + 1]
-    g = np.exp(-(x ** 2 / float(size) + y ** 2 / float(size)))
-    return g / g.sum()
-
-def gauss_kernel2(size, sigma):
-    gauss_filter = windows.gaussian(size, sigma,sym=True)
-    return np.outer(gauss_filter, gauss_filter)
