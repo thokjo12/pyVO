@@ -137,11 +137,13 @@ class KLTTracker:
             if np.linalg.norm(delta_p) <= min_delta_length:
                 break
 
-        self.positionHistory.append(
-            (self.pos_x, self.pos_y, self.theta))  # Add new point to positionHistory to visualize tracking
+            self.translationX, self.translationY, self.theta = delta_p
 
         if np.linalg.norm(error) > max_error:
             return 3
+
+        # Add new point to positionHistory to visualize tracking
+        self.positionHistory.append((self.pos_x, self.pos_y, self.theta))  
 
         return 0
 
