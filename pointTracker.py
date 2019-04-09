@@ -31,12 +31,12 @@ def get_warped_patch(img: np.ndarray, patch_size: int,
     return cv2.warpAffine(img, t, (patch_size, patch_size), flags=cv2.WARP_INVERSE_MAP)
 
 
-def get_warped_jacobian(x0, y0, theta, path_size, half_patch):
+def get_warped_jacobian(theta, path_size, half_patch):
     """Evaulates the jacobian at W(x; p)"""
     jacobian_warp = np.zeros((path_size, path_size, 2, 3))
     jacobian_warp[:, :, 0, 0] = 1
     jacobian_warp[:, :, 1, 1] = 1
-    u_grid, v_grid = np.mgrid[-half_patch:half_patch + 1,-half_patch:half_patch + 1]
+    u_grid, v_grid = np.mgrid[-half_patch:half_patch + 1, -half_patch:half_patch + 1]
 
     jacobian_warp[:, :, 0, 2] = -sin(theta) * u_grid - cos(theta) * v_grid
     jacobian_warp[:, :, 1, 2] = cos(theta) * u_grid - sin(theta) * v_grid
@@ -104,6 +104,9 @@ class KLTTracker:
         """
 
         for iteration in range(max_iterations):
+
+            # TODO check if points of the patch are inside the image (do we have a patch that exceeds 640  || 480)
+
             # Crop the gradient
             grad_i = get_warped_patch(img_grad, self.patchSize, self.pos_x, self.pos_y, self.theta)
 
@@ -114,27 +117,33 @@ class KLTTracker:
             error = self.trackingPatch - warped_patch
 
             # Calculate the steepest descent
-            warped_jacobian = get_warped_jacobian(self.pos_x, self.pos_y, self.theta, self.patchSize,
-                                                  self.patchHalfSizeFloored)
-            steepest_descent = grad_i.dot(warped_jacobian)
+            jacobian = get_warped_jacobian(self.theta, self.patchSize,self.patchHalfSizeFloored)
+            steepest_descent = grad_i @ jacobian
 
             # Find the hessian
-            hessian = steepest_descent.T.dot(steepest_descent)
-            hessian = np.sum(hessian, (1, 2))
-            # Try to invert the hessian, return if we cant
+            hessian = np.sum(steepest_descent.transpose(0, 1, 3, 2) @ steepest_descent, (0, 1))
+
             if not mat_invertible(hessian):
                 print("Hessian not invertible")
                 return 2
 
-            hessian_inv = np.linalg.inv(hessian)
+            hessian = np.linalg.inv(hessian)
 
-            delta_p = hessian_inv * np.sum((steepest_descent.T.dot(error)), (1, 2))
-            # TODO update p
+            # iffy, double check this because we are summing over 3 axes.
+            delta_p = hessian @ np.sum((steepest_descent.T @ error),
+                                       (1, 2, 3))
 
-            raise NotImplementedError  # You should try to implement this without using any loops, other than this iteration loop. Otherwise it will be very slow.
+            # check if delta p is less or equal to min delta, if so break
+            if np.linalg.norm(delta_p) <= min_delta_length:
+                break
 
         self.positionHistory.append(
             (self.pos_x, self.pos_y, self.theta))  # Add new point to positionHistory to visualize tracking
+
+        if np.linalg.norm(error) > max_error:
+            return 3
+
+        return 0
 
 
 class PointTracker:
