@@ -17,6 +17,13 @@ def project_points(ids: np.ndarray, points: np.ndarray, depth_img: np.ndarray) -
     :param depth_img: The depth image. Divide pixel value by 5000 to get depth in meters.
     :return: A tuple containing a N vector and a 3xN vector of all the points that where successfully projected.
     """
+    points = points.astype('int')
+    points_depth = depth_img[points[0], points[1]]
+    points_depth = np.expand_dims(points_depth, axis=0)
+    projected_points = np.append(points, points_depth, axis=0)
 
-    raise NotImplementedError
+    K = np.array([fx, 0., cx,
+                  0., fy, cy,
+                  0., 0., 1])
 
+    return (ids, projected_points)
