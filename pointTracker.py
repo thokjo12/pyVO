@@ -52,7 +52,7 @@ def mat_invertible(mat):
     :return: true if invertible
     """
     return mat.shape[0] == mat.shape[1] and \
-        np.linalg.matrix_rank(mat) <= np.min([mat.shape[0], mat.shape[1]])
+           np.linalg.matrix_rank(mat) <= np.min([mat.shape[0], mat.shape[1]])
 
 
 class KLTTracker:
@@ -106,8 +106,15 @@ class KLTTracker:
         img_height, img_width = img.shape
 
         for iteration in range(max_iterations):
+
             # Check if the point in the tracking patch is outside the image
-            if not 0 <= self.pos_x < img_width or not 0 <= self.pos_y < img_height:
+            x_min = self.pos_x - self.patchHalfSizeFloored
+            x_max = self.pos_x + self.patchHalfSizeFloored
+
+            y_min = self.pos_y - self.patchHalfSizeFloored
+            y_max = self.pos_y + self.patchHalfSizeFloored
+
+            if (x_min or y_min < 0) or x_max > img_width or y_max > img_height:
                 return 1
 
             # Crop the gradient

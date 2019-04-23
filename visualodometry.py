@@ -23,10 +23,10 @@ depth_img = dl.get_depth()
 points_and_response = harris_corners(grey_img)
 tracker.add_new_corners(grey_img, points_and_response)
 
-# TEMP
-dl.next()
-grey_img = dl.get_greyscale()
-tracker.track_on_image(grey_img)
+# # TEMP
+# dl.next()
+# grey_img = dl.get_greyscale()
+# tracker.track_on_image(grey_img)
 
 # Project the points in the first frame
 previous_ids, previous_points = tracker.get_position_with_id()
