@@ -42,15 +42,17 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     trace = A + C
     R = det - 0.06 * trace * trace
 
-    # TODO: introduce NMS
+    # perform non max suppression
+    kernel = np.ones((27,27))
+    dilated = cv2.dilate(R,kernel)
+    matched = R == dilated
+    R[~matched] = 0
 
-    #convert everything that is not relevant to 0 and everything else to 1
-    #non zero cv2
-    #dilate
-
+    # find applicable coordinates matching threshold
     indices = np.where(R >= threshold)
     coordinates = np.stack(indices, axis=1)
-    points = list(zip(R[indices], coordinates))
 
+    # extract points
+    points = list(zip(R[indices], coordinates))
     points.sort(key=lambda x: x[0], reverse=True)
     return points
