@@ -146,7 +146,7 @@ class KLTTracker:
             return 3
 
         # Add new point to positionHistory to visualize tracking
-        self.positionHistory.append((self.pos_x, self.pos_y, self.theta))  
+        self.positionHistory.append((self.pos_x, self.pos_y, self.theta))
 
         return 0
 
