@@ -91,7 +91,7 @@ class KLTTracker:
         return self.initialPosition[1] + self.translationY
 
     def track_new_image(self, img: np.ndarray, img_grad: np.ndarray, max_iterations: int,
-                        min_delta_length=2.5e-2, max_error=100) -> int:
+                        min_delta_length=2.5e-2, max_error=0.035) -> int:
         """
         Tracks the KLT tracker on a new grayscale image. You will need the get_warped_patch function here.
         :param img: The image.
