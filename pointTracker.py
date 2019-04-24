@@ -114,7 +114,7 @@ class KLTTracker:
             y_min = self.pos_y - self.patchHalfSizeFloored
             y_max = self.pos_y + self.patchHalfSizeFloored
 
-            if (x_min or y_min < 0) or x_max > img_width or y_max > img_height:
+            if 0 > x_min or y_min < 0 or x_max > img_width or y_max > img_height:
                 return 1
 
             # Crop the gradient
@@ -135,7 +135,6 @@ class KLTTracker:
             hessian = np.sum(steepest_descent.transpose(0, 1, 3, 2) @ steepest_descent, (0, 1))
 
             if not mat_invertible(hessian):
-                print("Hessian not invertible")
                 return 2
 
             hessian = np.linalg.inv(hessian)

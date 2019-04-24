@@ -52,13 +52,13 @@ while dl.has_next():
     tracker.visualize(grey_img)
 
     # Project tracked points
-    #ids, points = tracker.get_position_with_id()
-    #ids, points = project_points(ids, points, depth_img)
-    #vis.set_projected_points(points, gt_position, gt_orientation)
+    ids, points = tracker.get_position_with_id()
+    ids, points = project_points(ids, points, depth_img)
+    vis.set_projected_points(points, gt_position, gt_orientation)
 
     # Replace lost points
-    #points_and_response = harris_corners(grey_img)
-    #tracker.add_new_corners(grey_img, points_and_response)
+    points_and_response = harris_corners(grey_img)
+    tracker.add_new_corners(grey_img, points_and_response)
 
     # Find transformation of the new frame
     ## I will push this code to the repo a bit later, as there is still some smaller issues to sort out with it

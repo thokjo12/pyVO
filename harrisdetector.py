@@ -19,6 +19,9 @@ def gauss_kernel2(size, sigma):
     gauss_filter = windows.gaussian(size, sigma, sym=True)
     return np.outer(gauss_filter, gauss_filter)
 
+#dirty global
+kernel = np.ones((27,27))
+
 
 def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple[float, np.ndarray]]:
     """
@@ -43,7 +46,6 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     R = det - 0.06 * trace * trace
 
     # perform non max suppression
-    kernel = np.ones((27,27))
     dilated = cv2.dilate(R,kernel)
     matched = R == dilated
     R[~matched] = 0
