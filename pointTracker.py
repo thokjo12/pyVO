@@ -91,7 +91,7 @@ class KLTTracker:
         return self.initialPosition[1] + self.translationY
 
     def track_new_image(self, img: np.ndarray, img_grad: np.ndarray, max_iterations: int,
-                        min_delta_length=2.5e-2, max_error=0.035) -> int:
+                        min_delta_length=2.5e-2, max_error=100) -> int:
         """
         Tracks the KLT tracker on a new grayscale image. You will need the get_warped_patch function here.
         :param img: The image.
@@ -126,7 +126,11 @@ class KLTTracker:
 
             # Calculate the error between the images
             error = self.trackingPatch - warped_patch
-
+            # temp = error * 255
+            # print(error.shape)
+            # cv2.imshow("err",temp.astype('uint8'))
+            # cv2.resizeWindow("err",200,200)
+            # cv2.waitKey(0)
             # Calculate the steepest descent
             jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
             steepest_descent = grad_i @ jacobian
@@ -140,7 +144,8 @@ class KLTTracker:
             hessian = np.linalg.inv(hessian)
 
             # Sum over 3 axes to change (3, 1, 27, 27) to (3,).
-            delta_p = hessian @ np.sum((steepest_descent.T @ error), (1, 2, 3))
+            term = steepest_descent.T @ error
+            delta_p = hessian @ np.sum(term, (1, 2, 3))
 
             # Check if delta p is less or equal to min delta, if so break
             if np.linalg.norm(delta_p) <= min_delta_length:
@@ -148,7 +153,7 @@ class KLTTracker:
 
             self.translationX, self.translationY, self.theta = delta_p
 
-        if np.linalg.norm(error) > max_error:
+        if np.linalg.norm(error) > max_error/27:
             return 3
 
         # Add new point to positionHistory to visualize tracking
