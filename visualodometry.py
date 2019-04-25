@@ -7,7 +7,7 @@ from pointProjection import project_points
 
 from debug.PointsVisualizer import PointVisualizer
 
-dl = DataLoader('dataset/rgbd_dataset_freiburg1_xyz') # Edit this string to load a different dataset
+dl = DataLoader('dataset/rgbd_dataset_freiburg2_desk') # Edit this string to load a different dataset
 
 tracker = PointTracker()
 vis = PointVisualizer()
