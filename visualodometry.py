@@ -40,8 +40,8 @@ while dl.has_next():
     dl.next()
 
     # Visualization
-    gt_position, gt_orientation = dl.get_transform()
-    vis.set_groundtruth_transform(gt_position, gt_orientation)
+    gt_orientation, gt_position = dl.get_transform()
+    vis.set_groundtruth_transform(gt_orientation, gt_position)
 
     # Get images
     grey_img = dl.get_greyscale()
@@ -55,10 +55,10 @@ while dl.has_next():
     # Project tracked points
     ids, points = tracker.get_position_with_id()
     ids, points = project_points(ids, points, depth_img)
-    vis.set_projected_points(points, gt_position, gt_orientation)
+    vis.set_projected_points(points, gt_orientation, gt_position)
+
     # Replace lost points
     points_and_response = harris_corners(grey_img)
     tracker.add_new_corners(grey_img, points_and_response)
-
 
 cv2.destroyAllWindows()
