@@ -3,23 +3,7 @@ import time
 import cv2
 import numpy as np
 from typing import Tuple, List
-from scipy.signal import convolve2d, windows
 
-
-
-# TODO: replace with the scipy signal function.
-def gauss_kernel(size):
-    """ Returns a normalized 2D gauss kernel array for convolutions """
-    size = int(size)
-    x, y = np.mgrid[-size:size + 1, -size:size + 1]
-    g = np.exp(-(x ** 2 / float(size) + y ** 2 / float(size)))
-    return g / g.sum()
-
-def gauss_kernel2(size, sigma):
-    gauss_filter = windows.gaussian(size, sigma, sym=True)
-    return np.outer(gauss_filter, gauss_filter)
-
-#dirty global
 kernel = np.ones((27,27))
 
 
@@ -35,10 +19,9 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     i_x = cv2.Scharr(src=img, ddepth=-1, dx=1, dy=0)
     i_y = cv2.Scharr(src=img, ddepth=-1, dx=0, dy=1)
 
-    window = gauss_kernel(3)
-    A = convolve2d(i_x * i_x, window, mode="same")
-    C = convolve2d(i_y * i_y, window, mode="same")
-    B = convolve2d(i_x * i_y, window, mode="same")
+    A = cv2.GaussianBlur(i_x * i_x,(3,3),blur_sigma)
+    C = cv2.GaussianBlur(i_y * i_y,(3,3),blur_sigma)
+    B = cv2.GaussianBlur(i_x * i_y,(3,3),blur_sigma)
 
     #look into eigen vals
     det = A * C - B * B

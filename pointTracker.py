@@ -9,6 +9,13 @@ from pyflann.index import FLANN
 
 flann = FLANN()
 
+def illustrate_error(error):
+    temp = error * 255
+    temp = cv2.resize(temp,(0,0),fx=10,fy=10)
+    print(error.shape)
+    cv2.imshow("err",temp.astype('uint8'))
+    cv2.waitKey(0)
+
 
 def get_warped_patch(img: np.ndarray, patch_size: int,
                      x_translation: float, y_translation: float, theta) -> np.ndarray:
@@ -91,7 +98,7 @@ class KLTTracker:
         return self.initialPosition[1] + self.translationY
 
     def track_new_image(self, img: np.ndarray, img_grad: np.ndarray, max_iterations: int,
-                        min_delta_length=2.5e-2, max_error=0.035) -> int:
+                        min_delta_length=2.5e-2, max_error=2) -> int:
         """
         Tracks the KLT tracker on a new grayscale image. You will need the get_warped_patch function here.
         :param img: The image.
@@ -104,9 +111,7 @@ class KLTTracker:
         2 if a invertible hessian is encountered and 3 if the final error is larger than max_error.
         """
         img_height, img_width = img.shape
-
         for iteration in range(max_iterations):
-
             # Check if the point in the tracking patch is outside the image
             x_min = self.pos_x - self.patchHalfSizeFloored
             x_max = self.pos_x + self.patchHalfSizeFloored
@@ -126,11 +131,8 @@ class KLTTracker:
 
             # Calculate the error between the images
             error = self.trackingPatch - warped_patch
-            temp = error * 255
-            temp = cv2.resize(temp,(0,0),fx=10,fy=10)
-            print(error.shape)
-            cv2.imshow("err",temp.astype('uint8'))
-            cv2.waitKey(0)
+
+            # illustrate_error(error)
 
             # Calculate the steepest descent
             jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
@@ -152,9 +154,12 @@ class KLTTracker:
             if np.linalg.norm(delta_p) <= min_delta_length:
                 break
 
-            self.translationX, self.translationY, self.theta = delta_p
+            # self.translationX, self.translationY, self.theta += delta_p
+            self.translationX += delta_p[0]
+            self.translationY += delta_p[1]
+            self.theta += delta_p[2]
 
-        if np.linalg.norm(error) > max_error * 27:
+        if np.linalg.norm(error) > max_error:
             return 3
 
         # Add new point to positionHistory to visualize tracking

@@ -56,7 +56,6 @@ while dl.has_next():
     ids, points = tracker.get_position_with_id()
     ids, points = project_points(ids, points, depth_img)
     vis.set_projected_points(points, gt_position, gt_orientation)
-
     # Replace lost points
     points_and_response = harris_corners(grey_img)
     tracker.add_new_corners(grey_img, points_and_response)
