@@ -126,11 +126,12 @@ class KLTTracker:
 
             # Calculate the error between the images
             error = self.trackingPatch - warped_patch
-            # temp = error * 255
-            # print(error.shape)
-            # cv2.imshow("err",temp.astype('uint8'))
-            # cv2.resizeWindow("err",200,200)
-            # cv2.waitKey(0)
+            temp = error * 255
+            temp = cv2.resize(temp,(0,0),fx=10,fy=10)
+            print(error.shape)
+            cv2.imshow("err",temp.astype('uint8'))
+            cv2.waitKey(0)
+
             # Calculate the steepest descent
             jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
             steepest_descent = grad_i @ jacobian
@@ -153,7 +154,7 @@ class KLTTracker:
 
             self.translationX, self.translationY, self.theta = delta_p
 
-        if np.linalg.norm(error) > max_error/27:
+        if np.linalg.norm(error) > max_error * 27:
             return 3
 
         # Add new point to positionHistory to visualize tracking

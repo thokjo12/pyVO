@@ -52,7 +52,7 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
 
     # find applicable coordinates matching threshold
     indices = np.where(R >= threshold)
-    coordinates = np.stack(indices, axis=1)
+    coordinates = np.flip(np.stack(indices, axis=1),axis=1)
 
     # extract points
     points = list(zip(R[indices], coordinates))
