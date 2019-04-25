@@ -29,7 +29,7 @@ def harris_corners(img: np.ndarray, threshold=1.0, blur_sigma=2.0) -> List[Tuple
     R = det - 0.06 * trace * trace
 
     # perform non max suppression
-    dilated = cv2.dilate(R,kernel)
+    dilated = cv2.dilate(R, kernel)
     matched = R == dilated
     R[~matched] = 0
 
