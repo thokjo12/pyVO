@@ -51,7 +51,7 @@ while dl.has_next():
     tracker.track_on_image(grey_img)
     tracker.visualize(grey_img)
     cv2.waitKey(2)
-
+    
     # Project tracked points
     ids, points = tracker.get_position_with_id()
     ids, points = project_points(ids, points, depth_img)

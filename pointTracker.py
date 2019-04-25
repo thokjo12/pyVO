@@ -10,6 +10,10 @@ from pyflann.index import FLANN
 flann = FLANN()
 
 def illustrate_error(error):
+    """
+    Creates a window to visualize the error for a patch.
+    :param error: The patch with all error values, shape: (patchSize, patchSize).
+    """
     temp = error * 255
     temp = cv2.resize(temp,(0,0),fx=10,fy=10)
     print(error.shape)
@@ -38,9 +42,16 @@ def get_warped_patch(img: np.ndarray, patch_size: int,
     return cv2.warpAffine(img, t, (patch_size, patch_size), flags=cv2.WARP_INVERSE_MAP)
 
 
-def get_warped_jacobian(theta, path_size, half_patch):
-    """Evaulates the jacobian at W(x; p)"""
-    jacobian_warp = np.zeros((path_size, path_size, 2, 3))
+def get_warped_jacobian(theta, patch_size, half_patch):
+    """
+    Evaulates the jacobian at W(x; p).
+    :param theta: The current theta value of the tracker.
+    :param patch_size: The size of the patch, only one dimension.
+    :half_patch: The patch half size, calculated in the tracker.
+    :return: A tensor containing all the jacobian matrices for every value
+    in the patch.
+    """
+    jacobian_warp = np.zeros((patch_size, patch_size, 2, 3))
     jacobian_warp[:, :, 0, 0] = 1
     jacobian_warp[:, :, 1, 1] = 1
     u_grid, v_grid = np.mgrid[-half_patch:half_patch + 1, -half_patch:half_patch + 1]
@@ -98,7 +109,7 @@ class KLTTracker:
         return self.initialPosition[1] + self.translationY
 
     def track_new_image(self, img: np.ndarray, img_grad: np.ndarray, max_iterations: int,
-                        min_delta_length=2.5e-2, max_error=2) -> int:
+                        min_delta_length=2.5e-2, max_error=5) -> int:
         """
         Tracks the KLT tracker on a new grayscale image. You will need the get_warped_patch function here.
         :param img: The image.
@@ -111,6 +122,7 @@ class KLTTracker:
         2 if a invertible hessian is encountered and 3 if the final error is larger than max_error.
         """
         img_height, img_width = img.shape
+
         for iteration in range(max_iterations):
             # Check if the point in the tracking patch is outside the image
             x_min = self.pos_x - self.patchHalfSizeFloored
@@ -132,6 +144,7 @@ class KLTTracker:
             # Calculate the error between the images
             error = self.trackingPatch - warped_patch
 
+            # Uncomment the line below to visualize the error
             # illustrate_error(error)
 
             # Calculate the steepest descent
@@ -141,11 +154,10 @@ class KLTTracker:
             # Find the hessian
             hessian = np.sum(steepest_descent.transpose(0, 1, 3, 2) @ steepest_descent, (0, 1))
 
+            # Check if the hessian is invertible, if it is then invert it
             if not mat_invertible(hessian):
                 return 2
-
             hessian = np.linalg.inv(hessian)
-
 
             # Sum over 3 axes to change (3, 1, 27, 27) to (3,).
             term = steepest_descent.T @ error
@@ -155,17 +167,19 @@ class KLTTracker:
             if np.linalg.norm(delta_p) <= min_delta_length:
                 break
 
-            # self.translationX, self.translationY, self.theta += delta_p
+            # Update p value
             self.translationX += delta_p[0]
             self.translationY += delta_p[1]
             self.theta += delta_p[2]
 
-        if np.linalg.norm(error) > max_error:
+        # Check that the error is not too large
+        if np.linalg.norm(error, ord=1) > max_error:
             return 3
 
         # Add new point to positionHistory to visualize tracking
         self.positionHistory.append((self.pos_x, self.pos_y, self.theta))
 
+        # Successfull track
         return 0
 
 
