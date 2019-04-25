@@ -98,11 +98,7 @@ class KLTTracker:
         return self.initialPosition[1] + self.translationY
 
     def track_new_image(self, img: np.ndarray, img_grad: np.ndarray, max_iterations: int,
-<<<<<<< HEAD
                         min_delta_length=2.5e-2, max_error=2) -> int:
-=======
-                        min_delta_length=2.5e-2, max_error=0.8) -> int:
->>>>>>> Adjusted parameters
         """
         Tracks the KLT tracker on a new grayscale image. You will need the get_warped_patch function here.
         :param img: The image.
@@ -115,11 +111,6 @@ class KLTTracker:
         2 if a invertible hessian is encountered and 3 if the final error is larger than max_error.
         """
         img_height, img_width = img.shape
-<<<<<<< HEAD
-=======
-        jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
-
->>>>>>> Adjusted parameters
         for iteration in range(max_iterations):
             # Check if the point in the tracking patch is outside the image
             x_min = self.pos_x - self.patchHalfSizeFloored
@@ -140,19 +131,11 @@ class KLTTracker:
 
             # Calculate the error between the images
             error = self.trackingPatch - warped_patch
-<<<<<<< HEAD
 
             # illustrate_error(error)
-=======
-            #temp = error * 255
-            #temp = cv2.resize(temp,(0,0),fx=10,fy=10)
-            #print(error.shape)
-            #cv2.imshow("err",temp.astype('uint8'))
-            #cv2.waitKey(0)
->>>>>>> Adjusted parameters
 
             # Calculate the steepest descent
-            #jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
+            jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
             steepest_descent = grad_i @ jacobian
 
             # Find the hessian
@@ -161,10 +144,8 @@ class KLTTracker:
             if not mat_invertible(hessian):
                 return 2
 
-            try:
-                hessian = np.linalg.inv(hessian)
-            except np.linalg.LinAlgError as e:
-                print("Exception:", e)
+            hessian = np.linalg.inv(hessian)
+
 
             # Sum over 3 axes to change (3, 1, 27, 27) to (3,).
             term = steepest_descent.T @ error
@@ -179,11 +160,7 @@ class KLTTracker:
             self.translationY += delta_p[1]
             self.theta += delta_p[2]
 
-<<<<<<< HEAD
         if np.linalg.norm(error) > max_error:
-=======
-        if np.max(np.abs(error)) > max_error:
->>>>>>> Adjusted parameters
             return 3
 
         # Add new point to positionHistory to visualize tracking
