@@ -26,7 +26,10 @@ def project_points(ids: np.ndarray, points: np.ndarray, depth_img: np.ndarray) -
     X = (points[0] - cx) * Z / fx
     Y = (points[1] - cy) * Z / fy
 
+    # Filter out points that have 0 depth
+    indices = np.argwhere(Z > 0)
+
     # Create a 3xN vector with all the projected points
     projected_points = np.block([[X], [Y], [Z]])
 
-    return (ids, projected_points)
+    return (ids[indices], projected_points[:, indices])
