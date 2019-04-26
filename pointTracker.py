@@ -9,15 +9,16 @@ from pyflann.index import FLANN
 
 flann = FLANN()
 
+
 def illustrate_error(error):
     """
     Creates a window to visualize the error for a patch.
     :param error: The patch with all error values, shape: (patchSize, patchSize).
     """
     temp = error * 255
-    temp = cv2.resize(temp,(0,0),fx=10,fy=10)
+    temp = cv2.resize(temp, (0, 0), fx=10, fy=10)
     print(error.shape)
-    cv2.imshow("err",temp.astype('uint8'))
+    cv2.imshow("err", temp.astype('uint8'))
     cv2.waitKey(0)
 
 
@@ -109,7 +110,7 @@ class KLTTracker:
         return self.initialPosition[1] + self.translationY
 
     def track_new_image(self, img: np.ndarray, img_grad: np.ndarray, max_iterations: int,
-                        min_delta_length=2.5e-2, max_error=5) -> int:
+                        min_delta_length=2.5e-2, max_error=0.035) -> int:
         """
         Tracks the KLT tracker on a new grayscale image. You will need the get_warped_patch function here.
         :param img: The image.
@@ -121,47 +122,55 @@ class KLTTracker:
         :return: Return 0 when track is successful, 1 any point of the tracking patch is outside the image,
         2 if a invertible hessian is encountered and 3 if the final error is larger than max_error.
         """
-        img_height, img_width = img.shape
+        patch_size = 1
+        for index, image in enumerate(img):
+            img_height, img_width = image.shape
+            patch_size = 2*patch_size+1
+            half_path_size_floored = patch_size // 2
 
-        for iteration in range(max_iterations):
-            # Check if the point in the tracking patch is outside the image
-            x_min = self.pos_x - self.patchHalfSizeFloored
-            x_max = self.pos_x + self.patchHalfSizeFloored
+            for iteration in range(max_iterations):
+                # Check if the point in the tracking patch is outside the image
+                scale = 2**(4-index)
 
-            y_min = self.pos_y - self.patchHalfSizeFloored
-            y_max = self.pos_y + self.patchHalfSizeFloored
+                scaled_pos_x = self.pos_x //scale
+                scaled_pos_y = self.pos_y //scale
+                x_min = scaled_pos_x  - self.patchHalfSizeFloored
+                x_max = scaled_pos_x + self.patchHalfSizeFloored
 
-            if 0 > x_min or y_min < 0 or x_max > img_width or y_max > img_height:
-                return 1
+                y_min = scaled_pos_y - self.patchHalfSizeFloored
+                y_max = scaled_pos_y + self.patchHalfSizeFloored
 
-            # Crop the gradient
-            grad_i = get_warped_patch(img_grad, self.patchSize, self.pos_x, self.pos_y, self.theta)
-            grad_i = grad_i.reshape(self.patchSize, self.patchSize, 1, -1)
+                if 0 > x_min or y_min < 0 or x_max > img_width or y_max > img_height:
+                    return 1
 
-            # Find I(W(x; p))
-            warped_patch = get_warped_patch(img, self.patchSize, self.pos_x, self.pos_y, self.theta)
+                # Crop the gradient
+                grad_i = get_warped_patch(img_grad[index], self.patchSize, scaled_pos_x, scaled_pos_y, self.theta)
+                grad_i = grad_i.reshape(self.patchSize, self.patchSize, 1, -1)
 
-            # Calculate the error between the images
-            error = self.trackingPatch - warped_patch
+                # Find I(W(x; p))
+                warped_patch = get_warped_patch(image, self.patchSize, scaled_pos_x, scaled_pos_y, self.theta)
 
-            # Uncomment the line below to visualize the error
-            # illustrate_error(error)
+                # Calculate the error between the images
+                error = self.trackingPatch - warped_patch
 
-            # Calculate the steepest descent
-            jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
-            steepest_descent = grad_i @ jacobian
+                # Uncomment the line below to visualize the error
+                # illustrate_error(error)
 
-            # Find the hessian
-            hessian = np.sum(steepest_descent.transpose(0, 1, 3, 2) @ steepest_descent, (0, 1))
+                # Calculate the steepest descent
+                jacobian = get_warped_jacobian(self.theta, self.patchSize, self.patchHalfSizeFloored)
+                steepest_descent = grad_i @ jacobian
 
-            # Check if the hessian is invertible, if it is then invert it
-            if not mat_invertible(hessian):
-                return 2
-            hessian = np.linalg.inv(hessian)
+                # Find the hessian
+                hessian = np.sum(steepest_descent.transpose(0, 1, 3, 2) @ steepest_descent, (0, 1))
 
-            # Sum over 3 axes to change (3, 1, 27, 27) to (3,).
-            term = steepest_descent.T @ error
-            delta_p = hessian @ np.sum(term, (1, 2, 3))
+                # Check if the hessian is invertible, if it is then invert it
+                if not mat_invertible(hessian):
+                    return 2
+                hessian = np.linalg.inv(hessian)
+
+                # Sum over 3 axes to change (3, 1, 27, 27) to (3,).
+                term = steepest_descent.T @ error
+                delta_p = hessian @ np.sum(term, (1, 2, 3))
 
             # Check if delta p is less or equal to min delta, if so break
             if np.linalg.norm(delta_p) <= min_delta_length:
@@ -184,7 +193,7 @@ class KLTTracker:
 
 
 class PointTracker:
-    def __init__(self, max_points=80, tracking_patch_size=27):
+    def __init__(self, max_points=80, tracking_patch_size=7):
         self.maxPoints = max_points
         self.trackingPatchSize = tracking_patch_size
         self.currentTrackers = []
@@ -255,16 +264,32 @@ class PointTracker:
             self.currentTrackers.append(KLTTracker(point, origin_image, self.trackingPatchSize, self.nextTrackerId))
             self.nextTrackerId += 1
 
-    def track_on_image(self, img: np.ndarray, max_iterations=25) -> None:
-
+    @staticmethod
+    def create_gradient(img):
         img_dx = cv2.Scharr(img, cv2.CV_64FC1, 1, 0)
         img_dy = cv2.Scharr(img, cv2.CV_64FC1, 0, 1)
-        img_grad = np.stack((img_dx, img_dy), axis=-1)
+        return np.stack((img_dx, img_dy), axis=-1)
+
+    def create_pyramid(self, img: np.ndarray):
+        images = []
+        gradients = []
+        images.append(img)
+        gradients.append(self.create_gradient(img))
+        for i in range(3):
+            images.append(cv2.pyrDown(images[i]))
+            gradients.append(self.create_gradient(images[i+1]))
+        images.reverse()
+        gradients.reverse()
+        return images, gradients
+
+    def track_on_image(self, img: np.ndarray, max_iterations=25) -> None:
+
+        images, gradients = self.create_pyramid(img)
 
         lost_track = []
         tracker_return_values = defaultdict(int)
         for klt in self.currentTrackers:
-            tracker_condition = klt.track_new_image(img, img_grad, max_iterations)
+            tracker_condition = klt.track_new_image(images, gradients, max_iterations)
             tracker_return_values[tracker_condition] += 1
             if tracker_condition != 0:
                 lost_track.append(klt)
