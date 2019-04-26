@@ -1,4 +1,6 @@
 import cv2
+import numpy as np
+from pyquaternion import Quaternion
 
 from dataloader import DataLoader
 from harrisdetector import harris_corners
@@ -22,11 +24,6 @@ grey_img = dl.get_greyscale()
 depth_img = dl.get_depth()
 points_and_response = harris_corners(grey_img)
 tracker.add_new_corners(grey_img, points_and_response)
-
-# # TEMP
-# dl.next()
-# grey_img = dl.get_greyscale()
-# tracker.track_on_image(grey_img)
 
 # Project the points in the first frame
 previous_ids, previous_points = tracker.get_position_with_id()
@@ -56,6 +53,7 @@ while dl.has_next():
     ids, points = tracker.get_position_with_id()
     ids, points = project_points(ids, points, depth_img)
     vis.set_projected_points(points, gt_orientation, gt_position)
+    #cv2.waitKey(0)
 
     # Replace lost points
     points_and_response = harris_corners(grey_img)
